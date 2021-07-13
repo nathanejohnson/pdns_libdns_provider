@@ -3,6 +3,7 @@ package powerdns
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/libdns/libdns"
 	pdns "github.com/mittwald/go-powerdns"
@@ -14,10 +15,11 @@ type Client struct {
 	pdns.Client
 }
 
-func NewClient(ServerID, ServerURL, APIToken string) (*Client, error) {
+func NewClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*Client, error) {
 	c, err := pdns.New(
 		pdns.WithBaseURL(ServerURL),
 		pdns.WithAPIKeyAuthentication(APIToken),
+		pdns.WithDebuggingOutput(debug),
 	)
 	if err != nil {
 		return nil, err
@@ -38,7 +40,7 @@ func (c *Client) updateRRs(ctx context.Context, zoneID string, recs []zones.Reso
 	return nil
 }
 
-func (c *Client) mergeRRecs(fullZone *zones.Zone, records []libdns.Record) ([]zones.ResourceRecordSet, error) {
+func mergeRRecs(fullZone *zones.Zone, records []libdns.Record) ([]zones.ResourceRecordSet, error) {
 	// pdns doesn't really have an append functionality, so we have to fake it by
 	// fetching existing rrsets for the zone and see if any already exist.  If so,
 	// merge those with the existing data.  Otherwise just add the record.
@@ -54,8 +56,8 @@ func (c *Client) mergeRRecs(fullZone *zones.Zone, records []libdns.Record) ([]zo
 				TTL:        int(recs[0].TTL.Seconds()),
 				ChangeType: zones.ChangeTypeReplace,
 				Comments:   t.Comments,
+				Records:    make([]zones.Record, len(t.Records)),
 			}
-			rr.Records = make([]zones.Record, len(rr.Records))
 			copy(rr.Records, t.Records)
 			// squash duplicate values
 			dupes := make(map[string]bool)
@@ -76,35 +78,31 @@ func (c *Client) mergeRRecs(fullZone *zones.Zone, records []libdns.Record) ([]zo
 		}
 	}
 	// Any remaining in our input hash need to be straight adds / creates.
-	rrsets = append(rrsets, convertHash(inHash)...)
+	rrsets = append(rrsets, convertLDHash(inHash)...)
 	return rrsets, nil
 }
 
+// generate RessourceRecordSets that will delete records from zone
 func cullRRecs(fullZone *zones.Zone, records []libdns.Record) []zones.ResourceRecordSet {
 	inHash := makeLDRecHash(records)
 	var rRSets []zones.ResourceRecordSet
 	for _, t := range fullZone.ResourceRecordSets {
 		k := key(t.Name, t.Type)
 		if recs, ok := inHash[k]; ok && len(recs) > 0 {
-			rRec := &zones.ResourceRecordSet{
-				Name: t.Name,
-				Type: t.Type,
-			}
-			rr := removeRecords(t, recs)
-			if len(rr.Records) == 0 {
+			rRec := removeRecords(t, recs)
+			if len(rRec.Records) == 0 {
 				rRec.ChangeType = zones.ChangeTypeDelete
 			} else {
 				rRec.ChangeType = zones.ChangeTypeReplace
-				rRec.TTL = t.TTL
-				rRec.Comments = t.Comments
 			}
-			rRSets = append(rRSets, *rRec)
+			rRSets = append(rRSets, rRec)
 		}
 	}
 	return rRSets
 
 }
 
+// remove culls from rRSet record values
 func removeRecords(rRSet zones.ResourceRecordSet, culls []libdns.Record) zones.ResourceRecordSet {
 	deleteItem := func(item string) []zones.Record {
 		recs := rRSet.Records
@@ -122,7 +120,7 @@ func removeRecords(rRSet zones.ResourceRecordSet, culls []libdns.Record) zones.R
 	return rRSet
 }
 
-func convertHash(inHash map[string][]libdns.Record) []zones.ResourceRecordSet {
+func convertLDHash(inHash map[string][]libdns.Record) []zones.ResourceRecordSet {
 	var rrsets []zones.ResourceRecordSet
 	for _, recs := range inHash {
 		if len(recs) == 0 {
@@ -160,29 +158,28 @@ func makeLDRecHash(records []libdns.Record) map[string][]libdns.Record {
 }
 
 func (c *Client) fullZone(ctx context.Context, zoneName string) (*zones.Zone, error) {
-
 	zc := c.Zones()
 	shortZone, err := c.shortZone(ctx, zoneName)
 	if err != nil {
 		return nil, err
 	}
-	pzone, err := zc.GetZone(ctx, c.sID, shortZone.ID)
+	fullZone, err := zc.GetZone(ctx, c.sID, shortZone.ID)
 	if err != nil {
 		return nil, err
 	}
-	return pzone, nil
+	return fullZone, nil
 }
 
 func (c *Client) shortZone(ctx context.Context, zoneName string) (*zones.Zone, error) {
 	zc := c.Zones()
-	pzones, err := zc.ListZone(ctx, c.sID, zoneName)
+	shortZones, err := zc.ListZone(ctx, c.sID, zoneName)
 	if err != nil {
 		return nil, err
 	}
-	if len(pzones) != 1 {
+	if len(shortZones) != 1 {
 		return nil, fmt.Errorf("zone not found")
 	}
-	return &pzones[0], nil
+	return &shortZones[0], nil
 }
 
 func (c *Client) zoneID(ctx context.Context, zoneName string) (string, error) {

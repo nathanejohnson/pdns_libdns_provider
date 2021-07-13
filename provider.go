@@ -1,10 +1,11 @@
-// Package libdnstemplate implements a DNS record management client compatible
-// with the libdns interfaces for <PROVIDER NAME>. TODO: This package is a
-// template only. Customize all godocs for actual implementation.
+// Package powerdns implements a powerdns
 package powerdns
 
 import (
 	"context"
+	"io"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,8 +15,9 @@ import (
 // Provider facilitates DNS record manipulation with PowerDNS.
 type Provider struct {
 	ServerURL string `json:"server_url"`
-	ServerID  string `json:"server_id"`
+	ServerID  string `json:"server_id,omitempty"`
 	APIToken  string `json:"api_token,omitempty"`
+	Debug     string `json:"debug,omitempty"`
 	mu        sync.Mutex
 	c         *Client
 }
@@ -52,15 +54,15 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	if err != nil {
 		return nil, err
 	}
-	pZone, err := c.fullZone(ctx, zone)
+	fullZone, err := c.fullZone(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
-	rrecs, err := c.mergeRRecs(pZone, records)
+	rrecs, err := mergeRRecs(fullZone, records)
 	if err != nil {
 		return nil, err
 	}
-	err = c.updateRRs(ctx, pZone.ID, rrecs)
+	err = c.updateRRs(ctx, fullZone.ID, rrecs)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +81,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 		return nil, err
 	}
 	inHash := makeLDRecHash(records)
-	rRecs := convertHash(inHash)
+	rRecs := convertLDHash(inHash)
 	err = c.updateRRs(ctx, zID, rRecs)
 	if err != nil {
 		return nil, err
@@ -93,13 +95,13 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	if err != nil {
 		return nil, err
 	}
-	pZone, err := c.fullZone(ctx, zone)
+	fullZone, err := c.fullZone(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
 
-	rRSets := cullRRecs(pZone, records)
-	err = c.updateRRs(ctx, pZone.ID, rRSets)
+	rRSets := cullRRecs(fullZone, records)
+	err = c.updateRRs(ctx, fullZone.ID, rRSets)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +115,17 @@ func (p *Provider) client() (*Client, error) {
 	defer p.mu.Unlock()
 	if p.c == nil {
 		var err error
-		p.c, err = NewClient(p.ServerID, p.ServerURL, p.APIToken)
+		if p.ServerID == "" {
+			p.ServerID = "localhost"
+		}
+		var debug io.Writer
+		switch strings.ToLower(p.Debug) {
+		case "stdout", "yes", "true", "1":
+			debug = os.Stdout
+		case "stderr":
+			debug = os.Stderr
+		}
+		p.c, err = NewClient(p.ServerID, p.ServerURL, p.APIToken, debug)
 		if err != nil {
 			return nil, err
 		}
