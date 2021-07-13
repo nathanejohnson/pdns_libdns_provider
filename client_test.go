@@ -70,6 +70,16 @@ func TestPDNSClient(t *testing.T) {
 				},
 			},
 			{
+				Name: "1.example.org.",
+				Type: "TXT",
+				TTL:  60,
+				Records: []zones.Record{
+					{
+						Content: "\"This is text\"",
+					},
+				},
+			},
+			{
 				Name: "2.example.org.",
 				Type: "A",
 				TTL:  60,
@@ -118,7 +128,7 @@ func TestPDNSClient(t *testing.T) {
 			want:      []string{"1.example.org.", "2.example.org."},
 		},
 		{
-			name:      "Test Append Zone",
+			name:      "Test Append Zone A record",
 			operation: "append",
 			zone:      "example.org.",
 			records: []libdns.Record{
@@ -130,6 +140,20 @@ func TestPDNSClient(t *testing.T) {
 			},
 			want: []string{"127.0.0.1", "127.0.0.2", "127.0.0.3", "127.0.0.7"},
 		},
+		{
+			name:      "Test Append Zone TXT record",
+			operation: "append",
+			zone:      "example.org.",
+			records: []libdns.Record{
+				{
+					Name:  "1.example.org.",
+					Type:  "TXT",
+					Value: "\"This is also some text\"",
+				},
+			},
+			want: []string{"\"This is text\"", "\"This is also some text\""},
+		},
+
 		{
 			name:      "Test Delete Zone",
 			operation: "delete",

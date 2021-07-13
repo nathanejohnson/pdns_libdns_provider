@@ -14,12 +14,24 @@ import (
 
 // Provider facilitates DNS record manipulation with PowerDNS.
 type Provider struct {
+	// ServerURL is the location of the pdns server.
 	ServerURL string `json:"server_url"`
+
+	// ServerID is the id of the server.  localhost will be used
+	// if this is omitted.
 	ServerID  string `json:"server_id,omitempty"`
+
+	// APIToken is the auth token.
 	APIToken  string `json:"api_token,omitempty"`
+
+	// Debug - can set this to stdout or stderr to dump
+	// debugging information about the API interaction with
+	// powerdns.  This will dump your auth token in plain text
+	// so be careful.
 	Debug     string `json:"debug,omitempty"`
+
 	mu        sync.Mutex
-	c         *Client
+	c         *client
 }
 
 // GetRecords lists all the records in the zone.
@@ -110,7 +122,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 
 }
 
-func (p *Provider) client() (*Client, error) {
+func (p *Provider) client() (*client, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.c == nil {

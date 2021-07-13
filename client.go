@@ -10,12 +10,12 @@ import (
 	"github.com/mittwald/go-powerdns/apis/zones"
 )
 
-type Client struct {
+type client struct {
 	sID string
 	pdns.Client
 }
 
-func NewClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*Client, error) {
+func NewClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*client, error) {
 	c, err := pdns.New(
 		pdns.WithBaseURL(ServerURL),
 		pdns.WithAPIKeyAuthentication(APIToken),
@@ -24,13 +24,13 @@ func NewClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*Client, 
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	return &client{
 		sID:    ServerID,
 		Client: c,
 	}, nil
 }
 
-func (c *Client) updateRRs(ctx context.Context, zoneID string, recs []zones.ResourceRecordSet) error {
+func (c *client) updateRRs(ctx context.Context, zoneID string, recs []zones.ResourceRecordSet) error {
 	for _, rec := range recs {
 		err := c.Zones().AddRecordSetToZone(ctx, c.sID, zoneID, rec)
 		if err != nil {
@@ -126,6 +126,7 @@ func convertLDHash(inHash map[string][]libdns.Record) []zones.ResourceRecordSet 
 		if len(recs) == 0 {
 			continue
 		}
+
 		rr := zones.ResourceRecordSet{
 			Name:       recs[0].Name,
 			Type:       recs[0].Type,
@@ -157,7 +158,7 @@ func makeLDRecHash(records []libdns.Record) map[string][]libdns.Record {
 	return inHash
 }
 
-func (c *Client) fullZone(ctx context.Context, zoneName string) (*zones.Zone, error) {
+func (c *client) fullZone(ctx context.Context, zoneName string) (*zones.Zone, error) {
 	zc := c.Zones()
 	shortZone, err := c.shortZone(ctx, zoneName)
 	if err != nil {
@@ -170,7 +171,7 @@ func (c *Client) fullZone(ctx context.Context, zoneName string) (*zones.Zone, er
 	return fullZone, nil
 }
 
-func (c *Client) shortZone(ctx context.Context, zoneName string) (*zones.Zone, error) {
+func (c *client) shortZone(ctx context.Context, zoneName string) (*zones.Zone, error) {
 	zc := c.Zones()
 	shortZones, err := zc.ListZone(ctx, c.sID, zoneName)
 	if err != nil {
@@ -182,7 +183,7 @@ func (c *Client) shortZone(ctx context.Context, zoneName string) (*zones.Zone, e
 	return &shortZones[0], nil
 }
 
-func (c *Client) zoneID(ctx context.Context, zoneName string) (string, error) {
+func (c *client) zoneID(ctx context.Context, zoneName string) (string, error) {
 	shortZone, err := c.shortZone(ctx, zoneName)
 	if err != nil {
 		return "", err
