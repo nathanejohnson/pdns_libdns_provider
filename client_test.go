@@ -42,7 +42,7 @@ func TestPDNSClient(t *testing.T) {
 			runCmd(dockerCompose, "down", "-v")
 		}
 	}()
-	c, err := NewClient("localhost", "http://localhost:8081", "secret", os.Stderr)
+	c, err := newClient("localhost", "http://localhost:8081", "secret", os.Stderr)
 	if err != nil {
 		t.Fatalf("failed client create: %s", err)
 	}

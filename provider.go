@@ -137,7 +137,7 @@ func (p *Provider) client() (*client, error) {
 		case "stderr":
 			debug = os.Stderr
 		}
-		p.c, err = NewClient(p.ServerID, p.ServerURL, p.APIToken, debug)
+		p.c, err = newClient(p.ServerID, p.ServerURL, p.APIToken, debug)
 		if err != nil {
 			return nil, err
 		}

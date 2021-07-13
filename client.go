@@ -15,7 +15,7 @@ type client struct {
 	pdns.Client
 }
 
-func NewClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*client, error) {
+func newClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*client, error) {
 	c, err := pdns.New(
 		pdns.WithBaseURL(ServerURL),
 		pdns.WithAPIKeyAuthentication(APIToken),
