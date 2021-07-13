@@ -42,7 +42,7 @@ func TestPDNSClient(t *testing.T) {
 			runCmd(dockerCompose, "down", "-v")
 		}
 	}()
-	c, err := newClient("localhost", "http://localhost:8081", "secret", os.Stderr)
+	c, err := newClient("localhost", "http://localhost:8081", "secret", nil)
 	if err != nil {
 		t.Fatalf("failed client create: %s", err)
 	}
@@ -111,7 +111,7 @@ func TestPDNSClient(t *testing.T) {
 		ServerURL: "http://localhost:8081",
 		ServerID:  "localhost",
 		APIToken:  "secret",
-		Debug:     "stdout",
+		Debug:     os.Getenv("PDNS_DEBUG"),
 	}
 	for _, table := range []struct {
 		name      string
@@ -133,7 +133,7 @@ func TestPDNSClient(t *testing.T) {
 			zone:      "example.org.",
 			records: []libdns.Record{
 				{
-					Name:  "1.example.org.",
+					Name:  "1",
 					Type:  "A",
 					Value: "127.0.0.7",
 				},
@@ -146,7 +146,7 @@ func TestPDNSClient(t *testing.T) {
 			zone:      "example.org.",
 			records: []libdns.Record{
 				{
-					Name:  "1.example.org.",
+					Name:  "1",
 					Type:  "TXT",
 					Value: "\"This is also some text\"",
 				},
@@ -160,7 +160,7 @@ func TestPDNSClient(t *testing.T) {
 			zone:      "example.org.",
 			records: []libdns.Record{
 				{
-					Name:  "1.example.org.",
+					Name:  "1",
 					Type:  "A",
 					Value: "127.0.0.7",
 				},
@@ -195,7 +195,7 @@ func TestPDNSClient(t *testing.T) {
 					t.Errorf("error fetching full zone %s", err)
 					return
 				}
-				hash := makeLDRecHash(table.records)
+				hash := makeLDRecHash(convertNamesToAbsolute(table.zone, table.records))
 				wantedRRs := convertLDHash(hash)
 
 				for _, wantedRR := range wantedRRs {

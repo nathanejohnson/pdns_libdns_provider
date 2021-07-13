@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"strings"
 
 	"github.com/libdns/libdns"
 	pdns "github.com/mittwald/go-powerdns"
@@ -16,6 +18,9 @@ type client struct {
 }
 
 func newClient(ServerID, ServerURL, APIToken string, debug io.Writer) (*client, error) {
+	if debug == nil {
+		debug = ioutil.Discard
+	}
 	c, err := pdns.New(
 		pdns.WithBaseURL(ServerURL),
 		pdns.WithAPIKeyAuthentication(APIToken),
@@ -189,4 +194,17 @@ func (c *client) zoneID(ctx context.Context, zoneName string) (string, error) {
 		return "", err
 	}
 	return shortZone.ID, nil
+}
+
+func convertNamesToAbsolute(zone string, records []libdns.Record) []libdns.Record {
+	out := make([]libdns.Record, len(records))
+	copy(out, records)
+	for i := range out {
+		name := libdns.AbsoluteName(out[i].Name, zone)
+		if !strings.HasSuffix(name, ".") {
+			name = name + "."
+		}
+		out[i].Name = name
+	}
+	return out
 }

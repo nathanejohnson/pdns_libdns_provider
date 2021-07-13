@@ -50,7 +50,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 			recs = append(recs, libdns.Record{
 				ID:       prec.ID,
 				Type:     rec.Type,
-				Name:     rec.Name,
+				Name:     libdns.RelativeName(rec.Name, zone),
 				Value:    v.Content,
 				TTL:      time.Second * time.Duration(rec.TTL),
 				Priority: 0,
@@ -70,7 +70,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	if err != nil {
 		return nil, err
 	}
-	rrecs, err := mergeRRecs(fullZone, records)
+	rrecs, err := mergeRRecs(fullZone, convertNamesToAbsolute(zone, records))
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	if err != nil {
 		return nil, err
 	}
-	inHash := makeLDRecHash(records)
+	inHash := makeLDRecHash(convertNamesToAbsolute(zone, records))
 	rRecs := convertLDHash(inHash)
 	err = c.updateRRs(ctx, zID, rRecs)
 	if err != nil {
@@ -112,7 +112,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		return nil, err
 	}
 
-	rRSets := cullRRecs(fullZone, records)
+	rRSets := cullRRecs(fullZone, convertNamesToAbsolute(zone, records))
 	err = c.updateRRs(ctx, fullZone.ID, rRSets)
 	if err != nil {
 		return nil, err
