@@ -1,4 +1,4 @@
-module github.com/nathanejohnson/pdnsrovider
+module github.com/nathanejohnson/pdnsprovider
 
 go 1.16
 
