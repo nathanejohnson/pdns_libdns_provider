@@ -22,11 +22,11 @@ To configure this, simply specify the server URL and the access token.
     )
     
     func main() {
-    p := &pdnsprovider.Provider{
-        ServerURL: "http://localhost", // required
-        ServerID:  "localhost",        // if left empty, defaults to localhost.
-        APIToken:  "asdfasdfasdf",     // required
-    }
+        p := &pdnsprovider.Provider{
+            ServerURL: "http://localhost", // required
+            ServerID:  "localhost",        // if left empty, defaults to localhost.
+            APIToken:  "asdfasdfasdf",     // required
+        }
     
         _, err := p.AppendRecords(context.Background(), "example.org.", []libdns.Record{
             {
